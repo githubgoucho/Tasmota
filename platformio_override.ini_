@@ -51,7 +51,7 @@ build_flags               = ${core_active.build_flags}
 ;board_build.f_cpu         = 160000000L
 
 ; *** Upload Serial reset method for Wemos and NodeMCU
-upload_port               = COM3
+upload_port                = COM31
 
 extra_scripts             = ${scripts_defaults.extra_scripts}
                             pio/obj-dump.py

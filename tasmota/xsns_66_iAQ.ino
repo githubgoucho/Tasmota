@@ -25,55 +25,71 @@
  * I2C Address: 0x5A
 \*********************************************************************************************/
 
-#define XSNS_66            66
-#define XI2C_46            46      // See I2CDEVICES.md
+#define XSNS_66 66
+#define XI2C_46 46 // See I2CDEVICES.md
 
-#define I2_ADR_IAQ         0x5a    // collides with MLX90614 and maybe others
+#define I2_ADR_IAQ 0x5a // collides with MLX90614 and maybe others
 
-#define IAQ_STATUS_OK      0x00
-#define IAQ_STATUS_BUSY    0x01
-#define IAQ_STATUS_WARM    0x10
-#define IAQ_STATUS_ERR     0x80
+#define IAQ_STATUS_OK 0x00
+#define IAQ_STATUS_BUSY 0x01
+#define IAQ_STATUS_WARM 0x10
+#define IAQ_STATUS_ERR 0x80
 #define IAQ_STATUS_I2C_ERR 0xFF
 
-struct  {
-  int32_t   resistance;
-  uint16_t  pred;
-  uint16_t  Tvoc;
-  uint8_t   i2c_address;
-  uint8_t   status;
-  bool      ready;
+struct
+{
+  int32_t resistance;
+  uint16_t pred;
+  uint16_t Tvoc;
+  uint8_t i2c_address;
+  uint8_t status;
+  bool ready;
 } iAQ;
 
-void IAQ_Init(void) {
-  if (!I2cSetDevice(I2_ADR_IAQ)) { return; }
+void IAQ_Init(void)
+{
+  Serial.println("...........start iaq lookup...........");
+  if (!I2cSetDevice(I2_ADR_IAQ))
+  {
+    Serial.println("...........iaq not found...........");
+    return;
+  }
+  Serial.println("...........iaq found...........");
   I2cSetActiveFound(I2_ADR_IAQ, "IAQ");
+  Serial.println("...........iaq active...........");
   iAQ.i2c_address = I2_ADR_IAQ;
   iAQ.ready = true;
-/*
-  for (iAQ.i2c_address = I2_ADR_IAQ; iAQ.i2c_address < I2_ADR_IAQ +5; iAQ.i2c_address++) {
-    if (I2cActive(iAQ.i2c_address)) { continue; }
-    if (I2cSetDevice(iAQ.i2c_address)) {
+
+  for (iAQ.i2c_address = I2_ADR_IAQ; iAQ.i2c_address < I2_ADR_IAQ + 5; iAQ.i2c_address++)
+  {
+    if (I2cActive(iAQ.i2c_address))
+    {
+      continue;
+    }
+    if (I2cSetDevice(iAQ.i2c_address))
+    {
       I2cSetActiveFound(iAQ.i2c_address, "IAQ");
       iAQ.ready = true;
       break;
     }
   }
-*/
+  /**/
 }
 
-void IAQ_Read(void) {
+void IAQ_Read(void)
+{
   uint8_t buf[9];
   buf[2] = IAQ_STATUS_I2C_ERR; // populate entry with error code
   Wire.requestFrom(iAQ.i2c_address, sizeof(buf));
-  for( uint32_t i=0; i<9; i++ ) {
-    buf[i]= Wire.read();
+  for (uint32_t i = 0; i < 9; i++)
+  {
+    buf[i] = Wire.read();
   }
   // AddLog(LOG_LEVEL_DEBUG, "iAQ: buffer %x %x %x %x %x %x %x %x %x ", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8]);
-  iAQ.pred = (buf[0]<<8) + buf[1];
+  iAQ.pred = (buf[0] << 8) + buf[1];
   iAQ.status = buf[2];
-  iAQ.resistance =  ((uint32_t)buf[3]<<24) + ((uint32_t)buf[4]<<16) + ((uint32_t)buf[5]<<8) + (uint32_t)buf[6];
-  iAQ.Tvoc =  (buf[7]<<8) + buf[8];
+  iAQ.resistance = ((uint32_t)buf[3] << 24) + ((uint32_t)buf[4] << 16) + ((uint32_t)buf[5] << 8) + (uint32_t)buf[6];
+  iAQ.Tvoc = (buf[7] << 8) + buf[8];
 }
 
 /*********************************************************************************************\
@@ -82,40 +98,47 @@ void IAQ_Read(void) {
 
 #ifdef USE_WEBSERVER
 const char HTTP_SNS_IAQ[] PROGMEM =
-  "{s}iAQ-Core " D_ECO2 "{m}%d " D_UNIT_PARTS_PER_MILLION "{e}"     // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
-  "{s}iAQ-Core " D_TVOC "{m}%d " D_UNIT_PARTS_PER_BILLION "{e}";
+    "{s}iAQ-Core " D_ECO2 "{m}%d " D_UNIT_PARTS_PER_MILLION "{e}" // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
+    "{s}iAQ-Core " D_TVOC "{m}%d " D_UNIT_PARTS_PER_BILLION "{e}";
 
 const char HTTP_SNS_IAQ_ERROR[] PROGMEM =
-  "{s}iAQ-Core {m} %s {e}";
+    "{s}iAQ-Core {m} %s {e}";
 #endif
 
 void IAQ_Show(uint8_t json)
 {
   IAQ_Read();
 
-  if (json) {
-    if (iAQ.status!=IAQ_STATUS_OK){
-      AddLog(LOG_LEVEL_INFO, PSTR("iAQ: " D_ERROR " %x" ),iAQ.status);
+  if (json)
+  {
+    if (iAQ.status != IAQ_STATUS_OK)
+    {
+      AddLog(LOG_LEVEL_INFO, PSTR("iAQ: " D_ERROR " %x"), iAQ.status);
       return;
-  }
-  else {
-    ResponseAppend_P(PSTR(",\"IAQ\":{\"" D_JSON_ECO2 "\":%u,\"" D_JSON_TVOC "\":%u,\"" D_JSON_RESISTANCE "\":%u}"), iAQ.pred, iAQ.Tvoc, iAQ.resistance);
+    }
+    else
+    {
+      ResponseAppend_P(PSTR(",\"IAQ\":{\"" D_JSON_ECO2 "\":%u,\"" D_JSON_TVOC "\":%u,\"" D_JSON_RESISTANCE "\":%u}"), iAQ.pred, iAQ.Tvoc, iAQ.resistance);
 #ifdef USE_DOMOTICZ
-      if (0 == TasmotaGlobal.tele_period) DomoticzSensor(DZ_AIRQUALITY, iAQ.pred);
-#endif  // USE_DOMOTICZ
-  }
+      if (0 == TasmotaGlobal.tele_period)
+        DomoticzSensor(DZ_AIRQUALITY, iAQ.pred);
+#endif // USE_DOMOTICZ
+    }
 #ifdef USE_WEBSERVER
-    } else {
-      switch(iAQ.status){
-        case IAQ_STATUS_OK:
-          WSContentSend_PD(HTTP_SNS_IAQ, iAQ.pred, iAQ.Tvoc);
-          break;
-        case IAQ_STATUS_WARM:
-          WSContentSend_PD(HTTP_SNS_IAQ_ERROR, D_START);
-          break;
-        default:
-          WSContentSend_PD(HTTP_SNS_IAQ_ERROR, D_ERROR);
-      }
+  }
+  else
+  {
+    switch (iAQ.status)
+    {
+    case IAQ_STATUS_OK:
+      WSContentSend_PD(HTTP_SNS_IAQ, iAQ.pred, iAQ.Tvoc);
+      break;
+    case IAQ_STATUS_WARM:
+      WSContentSend_PD(HTTP_SNS_IAQ_ERROR, D_START);
+      break;
+    default:
+      WSContentSend_PD(HTTP_SNS_IAQ_ERROR, D_ERROR);
+    }
 #endif
   }
 }
@@ -126,27 +149,36 @@ void IAQ_Show(uint8_t json)
 
 bool Xsns66(byte function)
 {
-  if (!I2cEnabled(XI2C_46)) { return false; }
+  if (!I2cEnabled(XI2C_46))
+  {
+   // Serial.println("...........I2C error...........");
+    return false;
+  }
 
   bool result = false;
 
-  if (FUNC_INIT == function) {
+  if (FUNC_INIT == function)
+  {
     IAQ_Init();
   }
-  else if (iAQ.ready) {
-    switch (function) {
-      case FUNC_JSON_APPEND:
-        IAQ_Show(1);
-        break;
+  else if (iAQ.ready)
+  {
+    switch (function)
+    {
+    case FUNC_JSON_APPEND:
+  Serial.println("...........I2C FUNC_JSON_APPEND...........");
+      IAQ_Show(1);
+      break;
 #ifdef USE_WEBSERVER
-      case FUNC_WEB_SENSOR:
-        IAQ_Show(0);
-        break;
-#endif  // USE_WEBSERVER
+    case FUNC_WEB_SENSOR:
+   Serial.println("...........I2C FUNC_WEB_SENSOR...........");
+     IAQ_Show(0);
+      break;
+#endif // USE_WEBSERVER
     }
   }
   return result;
 }
 
-#endif  // USE_IAQ
-#endif  // USE_I2C
+#endif // USE_IAQ
+#endif // USE_I2C
